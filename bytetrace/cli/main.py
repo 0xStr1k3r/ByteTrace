@@ -73,11 +73,13 @@ def cli(ctx: click.Context) -> None:
     \b
     Quick start:
       bytetrace info      ./binary            — binary overview
-      bytetrace sections  ./binary            — section table
-      bytetrace symbols   ./binary            — symbol listing
+      bytetrace sections  ./binary --explain  — section table + notes
       bytetrace symbols   ./binary -s main    — fuzzy symbol search
       bytetrace disasm    ./binary -f main    — disassemble a function
       bytetrace cfg       ./binary -f main    — control flow graph
+      bytetrace strings   ./binary            — extract strings
+      bytetrace hexdump   ./binary -s .rodata — hex dump a section
+      bytetrace imports   ./binary            — shared libs & imports
 
     \b
     Universal flags (work on every command):
@@ -118,6 +120,9 @@ from bytetrace.cli.commands.sections import sections  # noqa: E402
 from bytetrace.cli.commands.symbols  import symbols   # noqa: E402
 from bytetrace.cli.commands.disasm   import disasm    # noqa: E402
 from bytetrace.cli.commands.cfg      import cfg       # noqa: E402
+from bytetrace.cli.commands.strings  import strings   # noqa: E402
+from bytetrace.cli.commands.hexdump  import hexdump   # noqa: E402
+from bytetrace.cli.commands.imports  import imports   # noqa: E402
 
 cli.add_command(version)
 cli.add_command(info)
@@ -125,6 +130,9 @@ cli.add_command(sections)
 cli.add_command(symbols)
 cli.add_command(disasm)
 cli.add_command(cfg)
+cli.add_command(strings)
+cli.add_command(hexdump)
+cli.add_command(imports)
 
 
 # ── Entry point ───────────────────────────────────────────────────

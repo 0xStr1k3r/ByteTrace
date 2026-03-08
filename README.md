@@ -6,90 +6,76 @@ ByteTrace helps developers and security students explore compiled binaries with 
 
 ---
 
-## Features
+## Running ByteTrace
 
-| Command      | Description                                      |
-|-------------|--------------------------------------------------|
-| `info`      | Binary overview — format, arch, PIE, stripped…  |
-| `sections`  | Section header table (`.text`, `.data`, …)       |
-| `symbols`   | Symbol listing with fuzzy search                 |
-| `disasm`    | Disassemble a function or address range          |
-| `cfg`       | Control-flow graph of a function                 |
-| `version`   | Show version + dependency info                   |
+### Option 1 — `bytetrace.py` launcher (easiest, no setup needed)
 
-**Universal flags** available on every command:
+```bash
+python bytetrace.py <command> <binary> [options]
+```
 
-| Flag          | Effect                                  |
-|--------------|-----------------------------------------|
-| `--explain`   | Add inline educational annotations      |
-| `--json`      | Machine-readable JSON output            |
-| `--no-color`  | Strip ANSI colour (also `$NO_COLOR`)    |
-| `--quiet`/`-q`| Suppress decorative headers/chrome      |
+On **first run** it automatically:
+1. Creates a virtual environment at `.venv/`
+2. Installs all dependencies
+3. Launches the CLI
+
+Every subsequent run skips straight to the CLI — fast and painless.
+
+```bash
+# Examples
+python bytetrace.py info       ./mybinary
+python bytetrace.py sections   ./mybinary --explain
+python bytetrace.py symbols    ./mybinary --search main
+python bytetrace.py disasm     ./mybinary --func main
+python bytetrace.py cfg        ./mybinary --func main
+python bytetrace.py strings    ./mybinary
+python bytetrace.py hexdump    ./mybinary --section .rodata
+python bytetrace.py imports    ./mybinary
+```
+
+### Option 2 — Install with pip
+
+```bash
+pip install -e ".[dev]"   # installs the `bytetrace` console script
+bytetrace info ./mybinary
+```
 
 ---
 
-## Installation
+## Commands
 
-```bash
-# From source (recommended during development)
-pip install -e ".[dev]"
-```
+| Command     | Description                                      |
+|------------|--------------------------------------------------|
+| `info`     | Binary overview — format, arch, PIE, stripped…  |
+| `sections` | Section header table (`.text`, `.data`, …)       |
+| `symbols`  | Symbol listing with fuzzy search                 |
+| `disasm`   | Disassemble a function or address range          |
+| `cfg`      | Control-flow graph of a function                 |
+| `strings`  | Extract printable strings (like `strings`)       |
+| `hexdump`  | Hex + ASCII dump of a section or byte range      |
+| `imports`  | Shared library deps + imported symbols           |
+| `version`  | Show version + dependency info                   |
 
-**Requirements:** Python ≥ 3.10, and the following packages (installed automatically):
+### Universal flags (every command)
 
-| Package      | Purpose                         |
-|-------------|---------------------------------|
-| click        | CLI framework                   |
-| rich         | Terminal rendering              |
-| pyelftools   | ELF parsing                     |
-| capstone     | Multi-arch disassembly          |
-| networkx     | CFG graph construction          |
-| rapidfuzz    | Fuzzy symbol search             |
+| Flag           | Effect                                   |
+|---------------|------------------------------------------|
+| `--explain`    | Add inline educational annotations       |
+| `--json`       | Machine-readable JSON output             |
+| `--no-color`   | Strip ANSI colour (also `$NO_COLOR`)     |
+| `--quiet`/`-q` | Suppress decorative headers/chrome       |
 
----
-
-## Quick Start
-
-```bash
-# Compile a test binary
-gcc -o hello hello.c
-
-# Overview
-bytetrace info hello
-
-# Section table with explanations
-bytetrace sections hello --explain
-
-# All symbols
-bytetrace symbols hello
-
-# Fuzzy search for "main"
-bytetrace symbols hello --search main
-
-# Only functions
-bytetrace symbols hello --type function
-
-# Disassemble main
-bytetrace disasm hello --func main
-
-# Disassemble from address
-bytetrace disasm hello --addr 0x401130 --count 20
-
-# Control-flow graph of main
-bytetrace cfg hello --func main
-
-# JSON output (pipe-friendly)
-bytetrace info hello --json | jq .arch
-```
+> **Note:** Global flags (`--no-color`, `--version`) go **before** the command name:
+> ```bash
+> python bytetrace.py --no-color info ./binary
+> ```
 
 ---
 
 ## Command Reference
 
-### `bytetrace info <binary>`
-
-Prints a summary table of the binary's metadata.
-
+### `info <binary>`
+High-level overview of the binary.
 ```
 ◆ hello  /home/user/hello
 
@@ -97,85 +83,144 @@ Prints a summary table of the binary's metadata.
   arch          x86-64
   bits          64-bit
   endian        Little
-  entry point   0x0000000000401050
-  file size     15K
-  sections      28
+  entry point   0x0000000000401040
+  file size     15 KiB
+  sections      29
   symbols       34
   interpreter   /lib64/ld-linux-x86-64.so.2
   PIE           no
   stripped      no
 ```
-
-Use `--explain` to add annotations for each field.
+Add `--explain` to get an annotation on every field.
 
 ---
 
-### `bytetrace sections <binary>`
-
-Displays the section header table.
-
-```
-  #   Name               Offset      VAddr                 Size   Flags  Align
-  0   .interp            0x00000318  0x0000000000400318     28B   A      2^0
-  1   .text              0x00001050  0x0000000000401050    378K   AX     2^4
-  2   .data              0x00004000  0x0000000000404000      8B   AW     2^3
-  ...
+### `sections <binary>`
+Section header table with name, offset, virtual address, size, flags, and alignment.
+```bash
+python bytetrace.py sections ./binary
+python bytetrace.py sections ./binary --explain   # notes on .text, .bss, …
+python bytetrace.py sections ./binary --json
 ```
 
 ---
 
-### `bytetrace symbols <binary> [OPTIONS]`
-
+### `symbols <binary> [OPTIONS]`
 Lists symbols from `.symtab` and `.dynsym`.
 
-**Options:**
+| Flag                    | Description                           |
+|------------------------|---------------------------------------|
+| `--search`/`-s QUERY`  | Fuzzy symbol name search              |
+| `--type TYPE`          | Filter: `function`, `object`, `tls`…  |
+| `--dynamic`            | Show only dynamic (.dynsym) symbols   |
+| `--limit`/`-n N`       | Truncate to N rows                    |
 
-| Flag                  | Description                          |
-|----------------------|--------------------------------------|
-| `--search`/`-s QUERY` | Fuzzy symbol name search             |
-| `--type TYPE`         | Filter: function, object, tls, …     |
-| `--dynamic`           | Show only dynamic (.dynsym) symbols  |
-| `--limit`/`-n N`      | Truncate output to N rows            |
+```bash
+python bytetrace.py symbols ./binary --search malloc
+python bytetrace.py symbols ./binary --type function --dynamic
+```
 
 ---
 
-### `bytetrace disasm <binary> [OPTIONS]`
-
+### `disasm <binary> [OPTIONS]`
 Disassembles code using Capstone. Supports x86, x86-64, ARM, AArch64, MIPS, RISC-V, PowerPC.
 
-**Options:**
+| Flag           | Description                             |
+|---------------|-----------------------------------------|
+| `--func`/`-f` | Symbol name (fuzzy-matched)             |
+| `--addr`/`-a` | Virtual address (hex `0x…` or decimal)  |
+| `--count`/`-n`| Max instructions (default: 50)          |
 
-| Flag             | Description                                   |
-|-----------------|-----------------------------------------------|
-| `--func`/`-f`    | Symbol name (fuzzy-matched)                   |
-| `--addr`/`-a`    | Virtual address (hex `0x…` or decimal)        |
-| `--count`/`-n`   | Max instructions to show (default: 50)        |
+```bash
+python bytetrace.py disasm ./binary --func main
+python bytetrace.py disasm ./binary --addr 0x401130 --count 30
+```
 
 ---
 
-### `bytetrace cfg <binary> [OPTIONS]`
+### `cfg <binary> [OPTIONS]`
+Builds a control-flow graph by splitting disassembly at branch targets and returns. Each basic block is shown as a panel with its instructions and successors.
 
-Builds a control-flow graph by splitting disassembly at branch targets and returns.
+| Flag           | Description                                |
+|---------------|--------------------------------------------|
+| `--func`/`-f` | Function name (fuzzy-matched)              |
+| `--addr`/`-a` | Start virtual address                      |
+| `--max-insns` | Safety cap on instructions (default: 500)  |
 
-**Options:**
+```bash
+python bytetrace.py cfg ./binary --func main
+python bytetrace.py cfg ./binary --func main --json   # JSON graph
+```
 
-| Flag          | Description                            |
-|--------------|----------------------------------------|
-| `--func`/`-f` | Function name (fuzzy-matched)          |
-| `--addr`/`-a` | Start virtual address                  |
-| `--max-insns` | Safety cap on instructions (default: 500) |
+---
 
-Each basic block is shown as a panel with its instructions and successor addresses.
+### `strings <binary> [OPTIONS]`
+Extracts printable ASCII strings, like the UNIX `strings` utility — but section-aware.
+
+| Flag             | Description                              |
+|-----------------|------------------------------------------|
+| `--min-len`/`-n` | Minimum string length (default: 4)       |
+| `--section`/`-s` | Limit to a specific section (e.g. `.rodata`) |
+| `--offset`       | Show file offset alongside each string   |
+
+```bash
+python bytetrace.py strings ./binary
+python bytetrace.py strings ./binary --section .rodata --offset
+python bytetrace.py strings ./binary --min-len 8 --json
+```
+
+---
+
+### `hexdump <binary> [OPTIONS]`
+Classic hex + ASCII dump of a section or arbitrary byte range.
+
+| Flag             | Description                                |
+|-----------------|---------------------------------------------|
+| `--section`/`-s` | Section to dump (e.g. `.rodata`)           |
+| `--offset`/`-o`  | File offset to start from (hex or decimal) |
+| `--size`/`-z`    | Bytes to dump when using `--offset` (default: 256) |
+| `--width`/`-w`   | Bytes per line (default: 16)               |
+
+```bash
+python bytetrace.py hexdump ./binary --section .rodata
+python bytetrace.py hexdump ./binary --offset 0x2000 --size 128
+```
+
+---
+
+### `imports <binary>`
+Shows shared-library dependencies (DT_NEEDED) and all imported (undefined) dynamic symbols.
+
+```bash
+python bytetrace.py imports ./binary
+python bytetrace.py imports ./binary --explain   # library notes
+python bytetrace.py imports ./binary --json
+```
 
 ---
 
 ## Supported Formats
 
-| Format    | Status            |
-|----------|-------------------|
-| ELF      | ✅ Full support    |
-| PE/COFF  | 🔜 Planned        |
-| Mach-O   | 🔜 Planned        |
+| Format   | Status            |
+|---------|-------------------|
+| ELF     | ✅ Full support    |
+| PE/COFF | 🔜 Planned        |
+| Mach-O  | 🔜 Planned        |
+
+---
+
+## Requirements
+
+Python ≥ 3.10. Dependencies are installed automatically by `bytetrace.py`:
+
+| Package    | Purpose                  |
+|-----------|--------------------------|
+| click      | CLI framework            |
+| rich       | Terminal rendering       |
+| pyelftools | ELF parsing              |
+| capstone   | Multi-arch disassembly   |
+| networkx   | CFG graph construction   |
+| rapidfuzz  | Fuzzy symbol search      |
 
 ---
 
