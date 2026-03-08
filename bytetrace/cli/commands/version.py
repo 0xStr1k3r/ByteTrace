@@ -1,7 +1,2 @@
-import click
-from bytetrace.version import __version__
-
-@click.command()
-def version():
-    """Show ByteTrace version."""
-    click.echo(f"ByteTrace version {__version__}")
+"""Re-export the version command from bytetrace.version."""
+from bytetrace.version import version  # noqa: F401

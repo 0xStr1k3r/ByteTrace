@@ -72,11 +72,12 @@ def cli(ctx: click.Context) -> None:
 
     \b
     Quick start:
-      bytetrace info     ./binary   — binary overview
-      bytetrace sections ./binary   — section table
-      bytetrace symbols  ./binary   — symbol listing
-      bytetrace disasm   ./binary   — disassemble a function
-      bytetrace cfg      ./binary   — control flow graph
+      bytetrace info      ./binary            — binary overview
+      bytetrace sections  ./binary            — section table
+      bytetrace symbols   ./binary            — symbol listing
+      bytetrace symbols   ./binary -s main    — fuzzy symbol search
+      bytetrace disasm    ./binary -f main    — disassemble a function
+      bytetrace cfg       ./binary -f main    — control flow graph
 
     \b
     Universal flags (work on every command):
@@ -111,9 +112,19 @@ def cli(ctx: click.Context) -> None:
 # ── Sub-command registration ──────────────────────────────────────
 # Imports are deferred to after `cli` is defined to avoid circular refs.
 
-from bytetrace.cli.commands.version import version  # noqa: E402
+from bytetrace.cli.commands.version  import version   # noqa: E402
+from bytetrace.cli.commands.info     import info      # noqa: E402
+from bytetrace.cli.commands.sections import sections  # noqa: E402
+from bytetrace.cli.commands.symbols  import symbols   # noqa: E402
+from bytetrace.cli.commands.disasm   import disasm    # noqa: E402
+from bytetrace.cli.commands.cfg      import cfg       # noqa: E402
 
 cli.add_command(version)
+cli.add_command(info)
+cli.add_command(sections)
+cli.add_command(symbols)
+cli.add_command(disasm)
+cli.add_command(cfg)
 
 
 # ── Entry point ───────────────────────────────────────────────────
